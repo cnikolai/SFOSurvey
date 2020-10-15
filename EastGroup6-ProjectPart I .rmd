@@ -1,0 +1,160 @@
+---
+title: "<center>Behavioral Data Science<br>Project - Part I</center>"
+author: "<center>Avisek Choudhury<br>Ben Corriveau<br>Cindy Nikolai</center>"
+date: "<center>10/12/2020</center>"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+## Research Questions 
+
+1.  Is there any correlation between overall feeling of safety and age and/or income and/or gender and/or frequency of travel?  
+2.  Is there any pattern between the satisfaction with various SFO facilities/services and income and/or gender and/or age?  
+3.  Does there appear to be any pattern between the purpose of your trip today and the overall feeling of cleanliness at the airport?  
+
+We considered that comments are correlated with ratings for some of the questions.  We will wait for further analysis before determining this.
+
+
+```{r readData, message=FALSE, warning=FALSE, error=TRUE}
+#Import the libraries
+library(tidyverse)
+library(haven)
+library(plotly)
+
+
+#Read the data set
+sfoDf <- read_delim('C:/MSDS/Fall 2020/Behavioral Data Science/Project/SFO_survey_withText.txt', delim="\t")
+head(sfoDf)
+```
+
+```{r countingNA, message=FALSE, warning=FALSE, error=TRUE }
+#Count the NA or missing Rows for each columns
+sapply(sfoDf, function(x) sum(is.na(x)))
+```
+
+We see lot of columns with huge no of missing values. Let's check the columns with more than 50% values are missing.
+
+```{r countingNA50, message=FALSE, warning=FALSE, error=TRUE }
+#Count the NA or missing Rows for each columns
+unlist(sapply(sfoDf, function(x) { 
+  if (sum(is.na(x)) > length(x)* 0.5)  
+    return (sum(is.na(x))) 
+  }))
+```
+
+So we see there are 40 columns out of 101 columns has more than 50% missing values.
+
+```{r flightByTerminal, message=FALSE, warning=FALSE, error=TRUE}
+#Airline terminal
+# 1 Terminal 1
+# 2 International Terminal
+# 3 Terminal 3
+# 0 Unknown
+flightByTerm <- sfoDf %>% 
+  group_by(TERM) %>%
+  summarise(Flight_By_Terminal = n()) %>% 
+  rename(Terminal = TERM)
+
+flightByTerm
+```
+```{r flightByTerminalPlot, message=FALSE, warning=FALSE, error=TRUE}
+fig <- plot_ly(
+  flightByTerm,
+  x = ~as.character(Terminal),
+  y = ~Flight_By_Terminal,
+  type = "bar"
+)
+fig <- fig %>% 
+  layout(title = " ",
+         xaxis = list(title = "Terminal No"),
+         yaxis = list(title = "No of Flights By Terminal"))
+
+fig
+```
+
+
+
+```{r flightByCarrier, message=FALSE, warning=FALSE, error=TRUE}
+#Airline type (based on Sampling Plan)
+# 1 Major carriers
+# 2 Small/International carriers
+# 3 New carriers
+sfoDf %>% 
+  group_by(ATYPE) %>%
+  summarise(Flight_By_Carrier = n()) %>% 
+  rename(Airline_Type = ATYPE)
+```
+
+```{r flightByDest, message=FALSE, warning=FALSE, error=TRUE}
+# DEST Destination of flight
+# 1 Within California
+# 2 Out of state
+# 3 Out of country
+sfoDf %>% 
+  group_by(DEST) %>%
+  summarise(Flight_By_Destination = n()) %>% 
+  rename(Destination = DEST)
+```
+
+Lets see the no of flights by each airline type and destination for each terminal.
+
+```{r , message=FALSE, warning=FALSE, error=TRUE}
+flightByTCD <- sfoDf %>% 
+  rename(Terminal = TERM, Airline_Type = ATYPE, Destination = DEST) %>% 
+  group_by(Terminal, Airline_Type, Destination) %>%
+  summarise(Flight_Count = n()) 
+
+flightByTCD$Terminal <-  as.factor(flightByTCD$Terminal)
+levels(flightByTCD$Terminal) <- c("Terminal 1", "Terminal 2", "Terminal 3")
+flightByTCD$Airline_Type <- as.factor(flightByTCD$Airline_Type)
+levels(flightByTCD$Airline_Type) <- c("Major carriers", "Small/International carriers", "New carriers")
+flightByTCD$Destination <- as.factor(flightByTCD$Destination)
+
+p <- ggplot(flightByTCD, aes(Airline_Type, Flight_Count)) +   
+    geom_bar(aes(fill = Destination), 
+             position = "dodge", stat = "identity") + 
+    labs(title = "Flight Count by Airline Type and Destination for Each Terminal ", 
+         x = "\nAirline Type", y = "Flight Count\n", color = "Destination\n") + 
+  scale_fill_discrete( name="Destinations",
+                       breaks=c("1", "2", "3"),
+                       labels=c("Within California","Out of State","Out of Country")) + 
+  theme(axis.text.x = element_text(angle = 30, vjust = 0.2, hjust= 0.2))
+ 
+p <- p + facet_wrap( ~ Terminal, ncol=3)
+
+#ggplotly(p)
+p
+```
+
+
+Now let's see top 5 busiest gates by terminal.
+
+```{r , message=FALSE, warning=FALSE, error=TRUE}
+# sfoDf %>% 
+#   group_by(TERM, GATENUM) %>% 
+#   summarise(Flight_Count = n()) %>% 
+#   arrange(desc(Flight_Count)) %>% 
+#   head(n=20) %>% 
+#   rename(Terminal = TERM, Gate_Num = GATENUM)
+
+top5GtByTerm <- sfoDf %>% 
+  group_by(TERM, GATENUM) %>% 
+  summarise(Flight_Count = n()) %>% 
+  arrange(desc(Flight_Count)) %>% 
+  top_n(n=5) %>% 
+  arrange(TERM, GATENUM) %>% 
+  rename(Terminal = TERM, Gate_Num = GATENUM)
+
+top5GtByTerm
+
+p <- ggplot(top5GtByTerm, aes(Gate_Num, Flight_Count)) + 
+  geom_bar(position = "dodge", stat = "identity") + 
+  geom_text(aes(label=Flight_Count), vjust=0) + 
+  facet_wrap( ~ Terminal, ncol=3)
+
+p
+
+```
+

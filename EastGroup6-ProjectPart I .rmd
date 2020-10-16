@@ -22,10 +22,10 @@ We considered that comments are correlated with ratings for some of the question
 library(tidyverse)
 library(haven)
 library(plotly)
-
+library(reshape2)
 
 #Read the data set
-sfoDf <- read_delim('C:/MSDS/Fall 2020/Behavioral Data Science/Project/SFO_survey_withText.txt', delim="\t")
+sfoDf <- read_delim('SFO_survey_withText.txt', delim="\t")
 head(sfoDf)
 ```
 
@@ -158,3 +158,73 @@ p
 
 ```
 
+
+Let's take a look at cleanliness responses grouped by various attributes (gender, income, age, etc.)
+```{r}
+cleanliness_data <- sfoDf %>%
+  select('Q17','Q18':'Q19','Q8COM1':'Q8COM2') %>% 
+  rename(Age = Q17,
+         Gender = Q18,
+         Income = Q19) %>% 
+  melt(., id.vars=c('Age','Gender','Income'), value.name = 'Comments') %>% 
+  select(-'variable') %>% 
+  na.omit(.)
+
+# Change numeric to real answers - Age
+cleanliness_data$Age[cleanliness_data$Age==1] <- 'Under 18'
+cleanliness_data$Age[cleanliness_data$Age==2] <- '18 - 24'
+cleanliness_data$Age[cleanliness_data$Age==3] <- '25 - 34'
+cleanliness_data$Age[cleanliness_data$Age==4] <- '35 - 44'
+cleanliness_data$Age[cleanliness_data$Age==5] <- '45 - 54'
+cleanliness_data$Age[cleanliness_data$Age==6] <- '55 - 64'
+cleanliness_data$Age[cleanliness_data$Age==7] <- '65 and over'
+cleanliness_data$Age[cleanliness_data$Age==8] <- "Don't know/Refused"
+cleanliness_data$Age[cleanliness_data$Age==0] <- 'Blank'
+
+# Change numeric to real answers - Gender
+cleanliness_data$Gender[cleanliness_data$Gender==1] <- 'Male'
+cleanliness_data$Gender[cleanliness_data$Gender==2] <- 'Female'
+cleanliness_data$Gender[cleanliness_data$Gender==0] <- 'Blank'
+
+# Change numeric to real answers - Income
+cleanliness_data$Income[cleanliness_data$Income==1] <- 'Under $50,000'
+cleanliness_data$Income[cleanliness_data$Income==2] <- '$50,000-$100,000'
+cleanliness_data$Income[cleanliness_data$Income==3] <- '$100,001-$150,000'
+cleanliness_data$Income[cleanliness_data$Income==4] <- 'Over $150,000'
+cleanliness_data$Income[cleanliness_data$Income==5] <- 'Other (unspecified)'
+cleanliness_data$Income[cleanliness_data$Income==0] <- 'Blank'
+```
+
+```{r}
+ggplot(cleanliness_data, aes(x=as.factor(Comments), fill=Income)) + 
+  geom_bar(stat='count') +
+  facet_wrap(~Gender) + 
+  labs(title="Cleanliness Comments by Gender/Income")
+```
+
+We can see that the most common responses within the cleanliness comments were 3 - "Restroom dirty/not cleaned often enough/wet floor," and 12 - "General positive comment."  Comments 4, 5, and 6 were also common responses, which are all related to bathroom cleanliness.  The largest number of respondendts appears to have income within $50,000 - $100,00. This could be because they are more critical, or because they are the largest respondent group.
+
+```{r}
+ggplot(cleanliness_data, aes(x=as.factor(Comments), fill=Age)) + 
+  geom_bar(stat='count') +
+  facet_wrap(~Gender) +
+  labs(title="Cleanliness Comments by Gender/Age")
+```
+We can see here that the group with the most critical responses for bathroom cleanliness appears to be aged 25-34.  This could be because they are more critical, or because they are the largest respondent group.
+
+Let's take a look at the counts of responses by Age, Gender, and Income.
+```{r}
+ggplot(cleanliness_data, aes(x=Age)) + 
+  geom_bar(stat='count') +
+  facet_wrap(~Gender) +
+  labs(title="Cleanliness Comment Count by Age and Gender")
+```
+
+
+```{r}
+ggplot(cleanliness_data, aes(x=Income)) + 
+  geom_bar(stat='count') +
+  facet_wrap(~Gender) +
+  labs(title="Cleanliness Comment Count by Income and Gender")+ 
+  theme(axis.text.x = element_text(angle = 30, vjust = 0.7))
+```
